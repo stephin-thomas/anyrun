@@ -1,6 +1,5 @@
 use abi_stable::std_types::{ROption, RString, RVec};
 use anyrun_plugin::{anyrun_interface::HandleResult, *};
-use fuzzy_matcher::FuzzyMatcher;
 use scrubber::DesktopEntry;
 use serde::Deserialize;
 use std::{env, fs, process::Command};
@@ -72,13 +71,16 @@ pub fn handler(selection: Match, state: &State) -> HandleResult {
             .arg("-c")
             .arg(&entry.exec)
             .current_dir(if let Some(path) = &entry.path {
-                if path.exists() { path } else { current_dir }
+                if path.exists() {
+                    path
+                } else {
+                    current_dir
+                }
             } else {
                 current_dir
             })
             .spawn()
-    }
-    {
+    } {
         eprintln!("Error running desktop entry: {}", why);
     }
 
@@ -108,25 +110,45 @@ pub fn init(config_dir: RString) -> State {
 
 #[get_matches]
 pub fn get_matches(input: RString, state: &State) -> RVec<Match> {
-    let matcher = fuzzy_matcher::skim::SkimMatcherV2::default().smart_case();
+    let mut nucleo = nucleo::Matcher::new(nucleo::Config::DEFAULT.match_paths());
     let mut entries = state
         .entries
         .iter()
         .filter_map(|(entry, id)| {
+            let entry_text: Vec<char> = entry.name.chars().collect();
+            let needle: Vec<char> = input.chars().collect();
             let app_score = match &entry.desc {
-                None => matcher.fuzzy_match(&entry.name, &input).unwrap_or(0),
-                Some(val) => matcher
-                    .fuzzy_match(&format!("{} {}", &val, &entry.name).to_string(), &input)
+                None => nucleo
+                    .fuzzy_match(
+                        nucleo::Utf32Str::Unicode(entry_text.as_slice()),
+                        nucleo::Utf32Str::Unicode(needle.as_slice()),
+                    )
                     .unwrap_or(0),
+                Some(val) => {
+                    let needle: Vec<char> = format!("{} {}", &val, &entry.name).chars().collect();
+                    nucleo
+                        .fuzzy_match(
+                            nucleo::Utf32Str::Unicode(entry_text.as_slice()),
+                            nucleo::Utf32Str::Unicode(needle.as_slice()),
+                        )
+                        .unwrap_or(0)
+                }
             };
 
             let keyword_score = entry
                 .keywords
                 .iter()
-                .map(|keyword| matcher.fuzzy_match(keyword, &input).unwrap_or(0))
-                .sum::<i64>();
-
-            let mut score = (app_score * 25 + keyword_score) - entry.offset;
+                .map(|keyword| {
+                    let keyword: Vec<char> = keyword.chars().collect();
+                    nucleo
+                        .fuzzy_match(
+                            nucleo::Utf32Str::Unicode(keyword.as_slice()),
+                            nucleo::Utf32Str::Unicode(needle.as_slice()),
+                        )
+                        .unwrap_or(0)
+                })
+                .sum::<u16>();
+            let mut score = (app_score * 25 + keyword_score) as i64 - entry.offset;
 
             // prioritize actions
             if entry.desc.is_some() {
