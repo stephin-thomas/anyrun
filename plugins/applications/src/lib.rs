@@ -150,12 +150,11 @@ pub fn get_matches(input: RString, state: &State) -> RVec<Match> {
                 .sum::<u16>();
             let mut score = (app_score * 25 + keyword_score) as i64 - entry.offset;
 
-            // prioritize actions
-            if entry.desc.is_some() {
-                score = score * 2;
-            }
-
             if score > 0 {
+                // prioritize actions
+                if entry.desc.is_some() {
+                    score = score * 2;
+                }
                 Some((entry, *id, score))
             } else {
                 None
