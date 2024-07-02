@@ -65,7 +65,7 @@ pub fn init(config_dir: RString) -> State {
     };
 
     let entries = scrubber::scrubber().unwrap_or_else(|why| {
-        eprintln!("Failed to load desktop entries: {}", why);
+        eprintln!("Failed to load binary entries: {}", why);
         Vec::new()
     });
     State { config, entries }

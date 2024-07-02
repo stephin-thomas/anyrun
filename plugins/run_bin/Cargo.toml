@@ -13,4 +13,4 @@ anyrun-plugin = { path = "../../anyrun-plugin" }
 abi_stable = "0.11"
 ron = "0.8"
 serde = { version = "1.0", features = ["derive"] }
-nucleo = "0.5.0"
+nucleo = "0.5"
